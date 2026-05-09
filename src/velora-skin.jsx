@@ -1,1156 +1,945 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── Keyframe CSS ──────────────────────────────────────────────────────────────
-const globalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap');
+/* ─────────────────────────────────────────────────────────────────────────────
+   VELORA SKIN — Luxury Brand Experience
+   A cinematic single-scroll brand presentation. No commerce. No buttons.
+   Pure storytelling.
+───────────────────────────────────────────────────────────────────────────── */
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Jost:wght@200;300;400;500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap');
 
-  :root {
-    --bg:       #F7F2EE;
-    --bg2:      #E8D9CE;
-    --accent:   #B68D74;
-    --dark:     #1E1B18;
-    --glow:     rgba(182,141,116,0.35);
-    --charcoal: #2D2926;
-    --muted:    #7A6A60;
-    --cream:    #FAF6F2;
-    --gold:     #C9A882;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  html { scroll-behavior: smooth; }
+:root {
+  --cream:    #F5EFE8;
+  --parchment:#EDE4D8;
+  --sand:     #D9CABА;
+  --taupe:    #C4A882;
+  --gold:     #B8955A;
+  --umber:    #7A5C3A;
+  --charcoal: #2A2420;
+  --ink:      #1A1612;
+  --mist:     rgba(245,239,232,0.06);
+  --glow:     rgba(184,149,90,0.18);
+}
 
-  body {
-    font-family: 'Inter', sans-serif;
-    background: var(--bg);
-    color: var(--charcoal);
-    cursor: none;
-    overflow-x: hidden;
-  }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--cream);
+  color: var(--charcoal);
+  font-family: 'Jost', sans-serif;
+  font-weight: 300;
+  overflow-x: hidden;
+  cursor: none;
+}
+::selection { background: var(--taupe); color: var(--cream); }
 
-  ::selection { background: var(--accent); color: #fff; }
+/* ── Custom cursor ── */
+#cur-a {
+  position: fixed; width: 6px; height: 6px;
+  background: var(--gold); border-radius: 50%;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+}
+#cur-b {
+  position: fixed; width: 36px; height: 36px;
+  border: 1px solid rgba(184,149,90,0.5); border-radius: 50%;
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: width .35s ease, height .35s ease, border-color .35s ease;
+}
+#cur-b.expand { width: 60px; height: 60px; border-color: var(--taupe); }
 
-  /* ── Custom cursor ── */
-  .cursor-dot {
-    width: 8px; height: 8px;
-    background: var(--accent);
-    border-radius: 50%;
-    position: fixed;
-    pointer-events: none;
-    z-index: 9999;
-    transform: translate(-50%,-50%);
-    transition: transform .1s;
-  }
-  .cursor-ring {
-    width: 40px; height: 40px;
-    border: 1px solid var(--accent);
-    border-radius: 50%;
-    position: fixed;
-    pointer-events: none;
-    z-index: 9998;
-    transform: translate(-50%,-50%);
-    transition: transform .25s cubic-bezier(.23,1,.32,1), width .3s, height .3s, background .3s;
-  }
-  .cursor-ring.hovering {
-    width: 64px; height: 64px;
-    background: var(--glow);
-  }
+/* ── Scroll bar ── */
+#spb {
+  position: fixed; top: 0; left: 0; height: 1px;
+  background: var(--gold); z-index: 9997;
+  transition: width .05s linear;
+}
 
-  /* ── Scroll progress ── */
-  .scroll-bar {
-    position: fixed; top: 0; left: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), var(--gold));
-    z-index: 9997;
-    transition: width .1s;
-  }
+/* ── Typography ── */
+.serif { font-family: 'Cormorant Garamond', serif; }
+.eb    { font-family: 'EB Garamond', serif; }
+.sans  { font-family: 'Jost', sans-serif; }
+.label {
+  font-family: 'Jost', sans-serif;
+  font-size: .65rem; letter-spacing: .28em;
+  text-transform: uppercase; font-weight: 400;
+  color: var(--taupe);
+}
 
-  /* ── Animations ── */
-  @keyframes floatY {
-    0%,100% { transform: translateY(0); }
-    50%      { transform: translateY(-18px); }
-  }
-  @keyframes floatX {
-    0%,100% { transform: translateX(0); }
-    50%      { transform: translateX(12px); }
-  }
-  @keyframes pulse-glow {
-    0%,100% { box-shadow: 0 0 24px var(--glow); }
-    50%      { box-shadow: 0 0 56px rgba(182,141,116,0.6); }
-  }
-  @keyframes spin-slow {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-  @keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position:  200% center; }
-  }
-  @keyframes reveal-up {
-    from { opacity:0; transform: translateY(60px); }
-    to   { opacity:1; transform: translateY(0); }
-  }
-  @keyframes reveal-left {
-    from { opacity:0; transform: translateX(-60px); }
-    to   { opacity:1; transform: translateX(0); }
-  }
-  @keyframes count-up {
-    from { opacity:0; transform: scale(.7); }
-    to   { opacity:1; transform: scale(1); }
-  }
-  @keyframes bar-fill { from { width:0; } }
-  @keyframes orbit {
-    from { transform: rotate(0deg) translateX(110px) rotate(0deg); }
-    to   { transform: rotate(360deg) translateX(110px) rotate(-360deg); }
-  }
-  @keyframes particle-float {
-    0%   { transform: translateY(0) rotate(0deg); opacity:.6; }
-    100% { transform: translateY(-100vh) rotate(720deg); opacity:0; }
-  }
-  @keyframes line-draw {
-    from { stroke-dashoffset: 400; }
-    to   { stroke-dashoffset: 0; }
-  }
-  @keyframes fade-in {
-    from { opacity:0; } to { opacity:1; }
-  }
+/* ── Scroll reveal ── */
+.sr {
+  opacity: 0; transform: translateY(36px);
+  transition: opacity 1.1s cubic-bezier(.16,1,.3,1), transform 1.1s cubic-bezier(.16,1,.3,1);
+}
+.sr.up   { opacity: 1; transform: translateY(0); }
+.sr-l {
+  opacity: 0; transform: translateX(-40px);
+  transition: opacity 1.1s cubic-bezier(.16,1,.3,1), transform 1.1s cubic-bezier(.16,1,.3,1);
+}
+.sr-l.up { opacity: 1; transform: translateX(0); }
+.sr-r {
+  opacity: 0; transform: translateX(40px);
+  transition: opacity 1.1s cubic-bezier(.16,1,.3,1), transform 1.1s cubic-bezier(.16,1,.3,1);
+}
+.sr-r.up { opacity: 1; transform: translateX(0); }
+.sr-s {
+  opacity: 0; transform: scale(.97);
+  transition: opacity 1.3s cubic-bezier(.16,1,.3,1), transform 1.3s cubic-bezier(.16,1,.3,1);
+}
+.sr-s.up { opacity: 1; transform: scale(1); }
 
-  .float-y  { animation: floatY 6s ease-in-out infinite; }
-  .float-x  { animation: floatX 5s ease-in-out infinite; }
-  .pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
-  .spin-slow  { animation: spin-slow 20s linear infinite; }
+/* ── Nav ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+  padding: 28px 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: padding .6s ease, background .6s ease, border-color .6s ease;
+  border-bottom: 1px solid transparent;
+}
+nav.scrolled {
+  padding: 18px 56px;
+  background: rgba(245,239,232,0.88);
+  backdrop-filter: blur(18px);
+  border-bottom-color: rgba(184,149,90,0.18);
+}
+.wordmark {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem; font-weight: 500;
+  letter-spacing: .32em; text-transform: uppercase;
+  color: var(--ink);
+}
+.nav-items { display: flex; gap: 40px; }
+.nav-lnk {
+  font-size: .62rem; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--charcoal); opacity: .7; text-decoration: none;
+  transition: opacity .3s, color .3s;
+  font-weight: 400;
+}
+.nav-lnk:hover { opacity: 1; color: var(--gold); }
 
-  /* ── Glass ── */
-  .glass {
-    background: rgba(247,242,238,0.6);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(182,141,116,0.2);
-  }
-  .glass-dark {
-    background: rgba(30,27,24,0.55);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(182,141,116,0.25);
-  }
+/* ── Hero ── */
+#hero {
+  position: relative; min-height: 100dvh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  overflow: hidden;
+  background: var(--ink);
+}
+#hero-img {
+  position: absolute; inset: 0;
+  background: url('https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=1600&q=90') center/cover no-repeat;
+  opacity: .72;
+  transform-origin: center;
+}
+#hero-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(26,22,18,.88) 0%, rgba(26,22,18,.28) 45%, transparent 70%);
+}
+#hero-content {
+  position: relative; z-index: 2;
+  padding: 0 56px 80px;
+}
+.hero-tag { color: rgba(184,149,90,.8); margin-bottom: 28px; }
+.hero-h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(3.8rem, 8vw, 8rem);
+  line-height: .95; font-weight: 300;
+  color: var(--cream); letter-spacing: -.01em;
+}
+.hero-h1 em { font-style: italic; color: rgba(245,239,232,.7); }
+.hero-sub {
+  font-family: 'Jost', sans-serif; font-weight: 200;
+  font-size: clamp(.9rem, 1.4vw, 1.1rem);
+  color: rgba(245,239,232,.55); letter-spacing: .12em;
+  max-width: 480px; margin-top: 24px; line-height: 1.8;
+}
+.hero-scroll {
+  position: absolute; bottom: 80px; right: 56px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 2;
+  animation: fadeUp 1s 2.4s both;
+}
+.hero-scroll span {
+  font-size: .55rem; letter-spacing: .3em; text-transform: uppercase;
+  color: rgba(184,149,90,.6); writing-mode: vertical-lr;
+}
+.scroll-line {
+  width: 1px; height: 60px;
+  background: linear-gradient(to bottom, rgba(184,149,90,.6), transparent);
+  animation: scrollPulse 2s ease-in-out infinite;
+}
 
-  /* ── Gradient text ── */
-  .gradient-text {
-    background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 50%, #D4A97A 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .shimmer-text {
-    background: linear-gradient(90deg, var(--accent) 0%, #E5C49A 40%, var(--accent) 80%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: shimmer 3s linear infinite;
-  }
+/* ── Section ── */
+section { position: relative; overflow: hidden; }
 
-  /* ── Section reveals ── */
-  .reveal { opacity:0; transform: translateY(50px); transition: opacity .9s cubic-bezier(.23,1,.32,1), transform .9s cubic-bezier(.23,1,.32,1); }
-  .reveal.visible { opacity:1; transform: translateY(0); }
-  .reveal-left { opacity:0; transform: translateX(-50px); transition: opacity .9s cubic-bezier(.23,1,.32,1), transform .9s cubic-bezier(.23,1,.32,1); }
-  .reveal-left.visible { opacity:1; transform: translateX(0); }
-  .reveal-right { opacity:0; transform: translateX(50px); transition: opacity .9s cubic-bezier(.23,1,.32,1), transform .9s cubic-bezier(.23,1,.32,1); }
-  .reveal-right.visible { opacity:1; transform: translateX(0); }
+/* ── Story ── */
+#story { background: var(--cream); padding: 160px 56px; }
+.story-grid {
+  display: grid; grid-template-columns: 1fr 1.6fr; gap: 100px;
+  align-items: start; max-width: 1240px; margin: 0 auto;
+}
+.story-label { margin-bottom: 48px; }
+.story-h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.6rem, 4.5vw, 4.4rem);
+  line-height: 1.08; font-weight: 400;
+  color: var(--ink); max-width: 280px;
+}
+.story-h2 em { font-style: italic; color: var(--taupe); }
+.story-img-wrap { position: relative; }
+.story-img {
+  width: 100%; aspect-ratio: 4/5; object-fit: cover;
+  display: block;
+}
+.story-fig-caption {
+  position: absolute; bottom: -28px; right: -28px;
+  width: 140px; height: 140px;
+  background: var(--parchment);
+  border: 1px solid rgba(184,149,90,0.2);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.story-fig-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.2rem; font-weight: 300; color: var(--ink);
+}
+.story-para {
+  font-size: clamp(.9rem, 1.15vw, 1.05rem);
+  line-height: 2; color: rgba(42,36,32,.75);
+  margin-bottom: 28px; font-weight: 300;
+}
+.story-quote {
+  font-family: 'EB Garamond', serif;
+  font-size: clamp(1.3rem, 2.2vw, 1.9rem);
+  font-style: italic; color: var(--ink);
+  line-height: 1.55; margin: 48px 0;
+  padding-left: 28px;
+  border-left: 1px solid var(--taupe);
+}
+.story-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 48px; }
+.story-col-h {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem; font-weight: 500; color: var(--ink);
+  margin-bottom: 14px; letter-spacing: .04em;
+}
 
-  /* ── Tilt card ── */
-  .tilt-card { transition: transform .4s cubic-bezier(.23,1,.32,1), box-shadow .4s; }
-  .tilt-card:hover { transform: perspective(600px) rotateY(-6deg) rotateX(3deg) scale(1.03); }
+/* ── Science ── */
+#science {
+  background: var(--ink);
+  padding: 160px 56px;
+}
+.science-inner { max-width: 1240px; margin: 0 auto; }
+.science-top {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 100px; flex-wrap: wrap; gap: 40px;
+}
+.science-h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.8rem, 5vw, 5rem);
+  line-height: 1; font-weight: 300; color: var(--cream);
+}
+.science-h2 em { font-style: italic; color: var(--taupe); }
+.science-intro {
+  max-width: 360px; font-size: .9rem; line-height: 1.9;
+  color: rgba(245,239,232,.45); font-weight: 200;
+}
+.science-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: rgba(184,149,90,.12);
+  border: 1px solid rgba(184,149,90,.12);
+}
+.sci-cell {
+  background: var(--ink); padding: 52px 40px;
+  transition: background .5s ease;
+}
+.sci-cell:hover { background: #201C18; }
+.sci-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 3.6rem; font-weight: 300; color: rgba(184,149,90,.25);
+  line-height: 1; margin-bottom: 28px;
+}
+.sci-h {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem; font-weight: 400; color: var(--cream);
+  margin-bottom: 16px; letter-spacing: .02em;
+}
+.sci-p { font-size: .82rem; line-height: 1.9; color: rgba(245,239,232,.4); font-weight: 200; }
+.sci-bar-wrap { margin-top: 36px; }
+.sci-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: .6rem; letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(184,149,90,.5); margin-bottom: 8px;
+}
+.sci-bar-track {
+  height: 1px; background: rgba(184,149,90,.15); position: relative;
+}
+.sci-bar-fill {
+  height: 1px; background: linear-gradient(to right, var(--taupe), var(--gold));
+  width: 0; transition: width 1.6s cubic-bezier(.16,1,.3,1);
+  position: absolute; top: 0; left: 0;
+}
 
-  /* ── Magnetic btn ── */
-  .mag-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    transition: transform .3s cubic-bezier(.23,1,.32,1), box-shadow .3s;
-  }
-  .mag-btn:hover { box-shadow: 0 12px 48px var(--glow); }
+/* ── Ritual ── */
+#ritual { background: var(--parchment); padding: 160px 56px; }
+.ritual-inner { max-width: 1000px; margin: 0 auto; }
+.ritual-h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.6rem, 4.5vw, 4.2rem);
+  line-height: 1.08; font-weight: 300; color: var(--ink);
+  margin-bottom: 100px;
+}
+.ritual-h2 em { font-style: italic; }
+.ritual-step {
+  display: grid; grid-template-columns: 80px 1fr auto;
+  align-items: start; gap: 48px;
+  padding: 52px 0;
+  border-top: 1px solid rgba(122,92,58,.15);
+  transition: all .5s ease;
+}
+.ritual-step:last-child { border-bottom: 1px solid rgba(122,92,58,.15); }
+.ritual-n {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: .75rem; font-weight: 400; color: var(--taupe);
+  letter-spacing: .2em; text-transform: uppercase; padding-top: 6px;
+}
+.ritual-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+  font-weight: 300; color: var(--ink); margin-bottom: 20px;
+  line-height: 1;
+}
+.ritual-body { font-size: .88rem; line-height: 1.95; color: rgba(42,36,32,.6); max-width: 480px; font-weight: 300; }
+.ritual-note {
+  font-family: 'EB Garamond', serif; font-style: italic;
+  font-size: .92rem; color: var(--umber); margin-top: 20px;
+  opacity: .8;
+}
+.ritual-img {
+  width: 160px; height: 200px; object-fit: cover;
+  opacity: .7; transition: opacity .5s ease;
+  flex-shrink: 0;
+}
+.ritual-step:hover .ritual-img { opacity: 1; }
 
-  /* ── Nav ── */
-  .nav-link {
-    position: relative; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--charcoal); text-decoration: none; font-weight: 500;
-    padding-bottom: 2px;
-  }
-  .nav-link::after {
-    content:''; position:absolute; bottom:0; left:0; width:0; height:1px;
-    background: var(--accent);
-    transition: width .4s cubic-bezier(.23,1,.32,1);
-  }
-  .nav-link:hover::after { width:100%; }
+/* ── Showcase ── */
+#showcase { background: var(--cream); }
+.showcase-full {
+  height: 100dvh; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.showcase-img {
+  position: absolute; inset: -40px;
+  object-fit: cover; width: calc(100% + 80px); height: calc(100% + 80px);
+  opacity: .75;
+  will-change: transform;
+}
+.showcase-caption {
+  position: relative; z-index: 2; text-align: center;
+  background: rgba(26,22,18,.42);
+  backdrop-filter: blur(1px);
+  padding: 48px 64px;
+  border: 1px solid rgba(245,239,232,.08);
+}
+.showcase-cap-h {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.8rem, 3vw, 3rem);
+  font-weight: 300; color: var(--cream); font-style: italic;
+}
+.showcase-cap-sub {
+  margin-top: 12px; font-size: .65rem; letter-spacing: .28em;
+  text-transform: uppercase; color: rgba(184,149,90,.7);
+}
+.two-col-shots {
+  display: grid; grid-template-columns: 1fr 1fr;
+}
+.shot-cell {
+  position: relative; overflow: hidden;
+  aspect-ratio: 4/5;
+}
+.shot-img {
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: .8; transition: opacity .6s ease, transform .8s cubic-bezier(.16,1,.3,1);
+}
+.shot-cell:hover .shot-img { opacity: 1; transform: scale(1.03); }
+.shot-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(26,22,18,.55), transparent);
+  display: flex; align-items: flex-end; padding: 36px 32px;
+}
+.shot-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem; font-style: italic;
+  color: var(--cream); font-weight: 300;
+}
 
-  /* ── Glow ring on cards ── */
-  .card-glow { position:relative; }
-  .card-glow::before {
-    content:''; position:absolute; inset:-1px; border-radius:inherit;
-    background: linear-gradient(135deg,rgba(182,141,116,0),rgba(182,141,116,.45),rgba(182,141,116,0));
-    opacity:0; transition: opacity .4s;
-    pointer-events:none;
-  }
-  .card-glow:hover::before { opacity:1; }
+/* ── Testimonials ── */
+#testimonials { background: var(--ink); padding: 180px 56px; }
+.testi-inner { max-width: 900px; margin: 0 auto; }
+.testi-label { margin-bottom: 72px; }
+.testi-item {
+  padding: 80px 0;
+  border-top: 1px solid rgba(184,149,90,.12);
+}
+.testi-item:last-child { border-bottom: 1px solid rgba(184,149,90,.12); }
+.testi-q {
+  font-family: 'EB Garamond', serif; font-style: italic;
+  font-size: clamp(1.5rem, 2.8vw, 2.4rem);
+  color: var(--cream); line-height: 1.48; font-weight: 400;
+  margin-bottom: 36px;
+}
+.testi-by {
+  display: flex; align-items: center; gap: 20px;
+}
+.testi-line { flex: 1; height: 1px; background: rgba(184,149,90,.15); }
+.testi-name { font-size: .62rem; letter-spacing: .22em; text-transform: uppercase; color: var(--taupe); }
+.testi-loc { font-size: .58rem; letter-spacing: .18em; text-transform: uppercase; color: rgba(184,149,90,.4); margin-top: 4px; }
 
-  /* ── Routine step ── */
-  .routine-step { transition: all .5s cubic-bezier(.23,1,.32,1); }
-  .routine-step:hover .step-detail { max-height: 200px; opacity:1; }
-  .step-detail { max-height:0; opacity:0; overflow:hidden; transition: max-height .5s cubic-bezier(.23,1,.32,1), opacity .4s; }
+/* ── Statement ── */
+#statement {
+  background: var(--ink);
+  padding: 200px 56px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.statement-orb {
+  position: absolute; width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(184,149,90,.06) 0%, transparent 70%);
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+.statement-h {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.4rem, 5.5vw, 5.5rem);
+  line-height: 1.1; font-weight: 300; color: var(--cream);
+  max-width: 900px; margin: 0 auto 40px;
+  position: relative; z-index: 1;
+}
+.statement-h em { font-style: italic; color: var(--taupe); }
+.statement-rule {
+  width: 60px; height: 1px; background: var(--taupe);
+  margin: 0 auto; position: relative; z-index: 1;
+}
 
-  /* ── Carousel ── */
-  .carousel-track { display:flex; transition: transform .7s cubic-bezier(.23,1,.32,1); }
+/* ── Footer ── */
+footer {
+  background: var(--ink);
+  padding: 64px 56px 48px;
+  border-top: 1px solid rgba(184,149,90,.1);
+}
+.footer-inner {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: 32px; max-width: 1240px; margin: 0 auto;
+}
+.footer-mark {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem; font-weight: 300; letter-spacing: .3em;
+  text-transform: uppercase; color: rgba(245,239,232,.35);
+}
+.footer-links { display: flex; gap: 32px; }
+.footer-lnk {
+  font-size: .56rem; letter-spacing: .22em; text-transform: uppercase;
+  color: rgba(245,239,232,.2); text-decoration: none;
+  transition: color .3s;
+}
+.footer-lnk:hover { color: var(--taupe); }
+.footer-legal { font-size: .6rem; color: rgba(245,239,232,.18); letter-spacing: .08em; margin-top: 40px; text-align: center; max-width: 1240px; margin-left: auto; margin-right: auto; }
 
-  /* ── Particle ── */
-  .particle {
-    position:absolute; border-radius:50%;
-    background: var(--accent);
-    animation: particle-float linear infinite;
-    pointer-events:none;
-  }
+/* ── Animations ── */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(20px);} to { opacity:1; transform:none;} }
+@keyframes fadeIn   { from { opacity:0;} to { opacity:1;} }
+@keyframes scrollPulse {
+  0%,100% { opacity:.6; transform: scaleY(1); }
+  50%      { opacity:1;  transform: scaleY(1.15); }
+}
+@keyframes heroReveal {
+  from { opacity:0; transform: translateY(40px); }
+  to   { opacity:1; transform: none; }
+}
 
-  /* ── Stat bar ── */
-  .stat-bar { height:3px; border-radius:2px; background: var(--bg2); overflow:hidden; }
-  .stat-fill { height:100%; background: linear-gradient(90deg,var(--accent),var(--gold)); border-radius:2px; width:0; transition: width 1.5s cubic-bezier(.23,1,.32,1); }
+.hero-tag  { animation: heroReveal 1s .8s  cubic-bezier(.16,1,.3,1) both; }
+.hero-h1   { animation: heroReveal 1.1s 1s  cubic-bezier(.16,1,.3,1) both; }
+.hero-sub  { animation: heroReveal 1.1s 1.3s cubic-bezier(.16,1,.3,1) both; }
 
-  /* ── Noise overlay ── */
-  .noise::after {
-    content:''; position:absolute; inset:0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
-    pointer-events:none; opacity:.4;
-  }
-
-  /* ── Hero gradient orbs ── */
-  .orb {
-    border-radius:50%;
-    filter: blur(80px);
-    position:absolute;
-    pointer-events:none;
-  }
-
-  /* ── Mobile ── */
-  @media(max-width:768px) {
-    .hide-mobile { display:none !important; }
-    .hero-title  { font-size: clamp(2.8rem, 10vw, 5rem) !important; }
-  }
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  nav { padding: 22px 28px; }
+  nav.scrolled { padding: 14px 28px; }
+  #hero-content { padding: 0 28px 60px; }
+  .hero-scroll { right: 28px; }
+  #story { padding: 100px 28px; }
+  .story-grid { grid-template-columns: 1fr; gap: 60px; }
+  .story-img-wrap { display: none; }
+  #science { padding: 100px 28px; }
+  .science-grid { grid-template-columns: 1fr; }
+  #ritual { padding: 100px 28px; }
+  .ritual-step { grid-template-columns: 40px 1fr; }
+  .ritual-img { display: none; }
+  #testimonials { padding: 100px 28px; }
+  #statement { padding: 120px 28px; }
+  footer { padding: 48px 28px 36px; }
+  .footer-inner { flex-direction: column; align-items: flex-start; }
+  .two-col-shots { grid-template-columns: 1fr; }
+}
 `;
 
-// ─── Data ────────────────────────────────────────────────────────────────────
-const PRODUCTS = [
+/* ─── Data ──────────────────────────────────────────────────────────────────── */
+const SCIENCE_CELLS = [
   {
-    name: "Velvet Cleanser",
-    tag: "Deep Purifying",
-    price: "$48",
-    desc: "Whipped cream formula with kaolin clay & oat extract. Melts away impurities without stripping melanin-rich skin.",
-    ingredients: ["Kaolin Clay", "Oat Extract", "Ceramide Complex"],
-    color: "#E8D9CE",
-    img: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&q=80",
+    n: "01",
+    title: "Melanin Dynamics",
+    body: "Melanin-rich skin contains denser, more dispersed melanosomes — a natural shield that demands actives formulated to work with, not against, this biology.",
+    bar: { label: "Melanosome Density", pct: 82 },
   },
   {
-    name: "Glow Repair Serum",
-    tag: "Brightening",
-    price: "$92",
-    desc: "20% Vitamin C + Niacinamide powerhouse. Fades hyperpigmentation, restores radiance.",
-    ingredients: ["Vitamin C 20%", "Niacinamide", "Tranexamic Acid"],
-    color: "#F2E4D8",
-    img: "https://images.unsplash.com/photo-1570194065650-d99fb4abbd90?w=400&q=80",
+    n: "02",
+    title: "Hydration Architecture",
+    body: "Trans-epidermal water loss behaves differently across skin tones. Our formulations target the ceramide-lipid matrix to restore barrier integrity at the cellular level.",
+    bar: { label: "Barrier Restoration Rate", pct: 91 },
   },
   {
-    name: "Hydra Silk Moisturizer",
-    tag: "Barrier Restore",
-    price: "$76",
-    desc: "Triple hyaluronic acid complex delivers 72-hour hydration. Satin-finish, no white cast.",
-    ingredients: ["Hyaluronic Acid", "Shea Butter", "Squalane"],
-    color: "#EEDFD3",
+    n: "03",
+    title: "Glow Intelligence",
+    body: "Luminosity is not whitening. It is light-scattering efficiency — the result of an optimised stratum corneum, even melanin distribution, and deep internal hydration.",
+    bar: { label: "Light Scatter Index", pct: 76 },
+  },
+];
+
+const RITUAL_STEPS = [
+  {
+    n: "I",
+    title: "Cleanse",
+    body: "Every ritual begins with release. A gentle, pH-calibrated emulsion dissolves the residue of the day without stripping the skin's acid mantle — the delicate film that protects everything underneath.",
+    note: "60 seconds. Circular. Unhurried.",
     img: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400&q=80",
   },
   {
-    name: "Midnight Renewal Oil",
-    tag: "Overnight Repair",
-    price: "$110",
-    desc: "Rare Marula & Bakuchiol blend accelerates cell renewal while you sleep.",
-    ingredients: ["Marula Oil", "Bakuchiol", "Sea Buckthorn"],
-    color: "#DDD0C8",
-    img: "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&q=80",
+    n: "II",
+    title: "Repair",
+    body: "Tranexamic acid, 15% Vitamin C, and stabilised niacinamide work in concert. Post-inflammatory hyperpigmentation — the ghost of every blemish — begins to fade over weeks, not seasons.",
+    note: "Applied to damp skin. Absorbed before the next layer.",
+    img: "https://images.unsplash.com/photo-1570194065650-d99fb4abbd90?w=400&q=80",
   },
   {
-    name: "SPF 50 Veil Cream",
-    tag: "Invisible Protection",
-    price: "$58",
-    desc: "Mineral UV filters in a featherlight formula. Zero white cast on all skin tones.",
-    ingredients: ["Zinc Oxide", "Titanium Dioxide", "Niacinamide"],
-    color: "#F0E6DC",
+    n: "III",
+    title: "Hydrate",
+    body: "Triple-molecular hyaluronic acid descends through all three skin layers simultaneously. Shea, squalane, and ceramide NP complete the lock — sealing every active beneath a weightless silk finish.",
+    note: "No white cast. No heaviness. No compromise.",
+    img: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&q=80",
+  },
+  {
+    n: "IV",
+    title: "Protect",
+    body: "UV exposure is the primary driver of hyperpigmentation in melanin-rich skin. Our mineral-hybrid SPF 50 is invisible, breathable, and formulated to sit beneath any complexion without a trace.",
+    note: "The most important step. Without exception.",
     img: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80",
   },
 ];
 
 const TESTIMONIALS = [
   {
-    name: "Amara J.",
-    role: "Creative Director, Lagos",
-    text: "The Glow Repair Serum eliminated my hyperpigmentation in 6 weeks. I've never felt more confident in my skin. VELORA truly understands melanin.",
-    rating: 5,
-    before: "Uneven tone",
-    after: "Radiant clarity",
-    img: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=80&q=80",
+    quote: "I have spent fifteen years in dermatology. I have seen formulations come and go. VELORA is the first time a brand has approached melanin-rich skin with the rigour it deserves — and the results are exactly what the science predicts.",
+    name: "Dr. Amara Osei",
+    loc: "Consultant Dermatologist — Accra & London",
   },
   {
-    name: "Zuri M.",
-    role: "Dermatology Nurse, Nairobi",
-    text: "As someone who knows ingredients, the formulations are exceptional — bioavailable actives at clinical concentrations. And the skin feel? Absolute silk.",
-    rating: 5,
-    before: "Dull & dehydrated",
-    after: "Plump & luminous",
-    img: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=80&q=80",
-  },
-  {
+    quote: "There is a particular confidence that comes when your skin simply works. No concealment. No correction. Just your face — luminous and at peace. VELORA gave me that, after years of searching.",
     name: "Nadia F.",
-    role: "Fashion Editor, Paris",
-    text: "I've used La Mer, Tatcha, Augustinus Bader. VELORA belongs in that conversation — and it actually works for my melanated skin unlike those others.",
-    rating: 5,
-    before: "Textured skin",
-    after: "Glass skin",
-    img: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=80&q=80",
+    loc: "Fashion Editor — Paris",
+  },
+  {
+    quote: "I tested the serum against three clinical benchmarks. The hyperpigmentation reduction at week six exceeded the control group by 34%. I have since recommended it to every patient with post-inflammatory pigmentation.",
+    name: "Dr. Zuri Mensah",
+    loc: "Research Dermatologist — Nairobi",
   },
 ];
 
-const ROUTINE = [
-  {
-    step: "01",
-    title: "Cleanse",
-    product: "Velvet Cleanser",
-    time: "AM + PM",
-    desc: "Begin with a ritual, not a chore. Our whipped cleanser dissolves impurities while reinforcing your skin barrier.",
-    tip: "Massage in circular motions for 60 seconds.",
-    color: "#B68D74",
-  },
-  {
-    step: "02",
-    title: "Repair",
-    product: "Glow Repair Serum",
-    time: "AM",
-    desc: "The workhorse of your routine. Clinically concentrated actives target hyperpigmentation and restore luminosity.",
-    tip: "Apply to slightly damp skin for deeper absorption.",
-    color: "#C9A882",
-  },
-  {
-    step: "03",
-    title: "Hydrate",
-    product: "Hydra Silk Moisturizer",
-    time: "AM + PM",
-    desc: "Lock in actives and restore your moisture barrier with triple-molecular hyaluronic acid.",
-    tip: "Layer over Midnight Oil for a moisture sandwich.",
-    color: "#D4B99A",
-  },
-  {
-    step: "04",
-    title: "Protect",
-    product: "SPF 50 Veil Cream",
-    time: "AM",
-    desc: "The most important step. Our invisible mineral SPF guards against UV-induced hyperpigmentation.",
-    tip: "Reapply every 2 hours outdoors.",
-    color: "#BFA38C",
-  },
-];
-
-const SKIN_METRICS = [
-  { label: "Hydration Level",       pct: 87, unit: "%" },
-  { label: "Melanin Distribution",  pct: 72, unit: "%" },
-  { label: "Barrier Integrity",     pct: 91, unit: "%" },
-  { label: "Glow Index",            pct: 78, unit: "%" },
-  { label: "UV Defense Readiness",  pct: 64, unit: "%" },
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function useScrollReveal() {
+/* ─── Custom Cursor ──────────────────────────────────────────────────────────── */
+function Cursor() {
+  const a = useRef(null);
+  const b = useRef(null);
   useEffect(() => {
-    const els = document.querySelectorAll(".reveal,.reveal-left,.reveal-right");
+    let mx = 0, my = 0, rx = 0, ry = 0, af;
+    const mv = (e) => { mx = e.clientX; my = e.clientY; };
+    const expand = () => b.current?.classList.add("expand");
+    const shrink = () => b.current?.classList.remove("expand");
+    window.addEventListener("mousemove", mv);
+    document.querySelectorAll("a, button, .ritual-step, .sci-cell, .shot-cell").forEach((el) => {
+      el.addEventListener("mouseenter", expand);
+      el.addEventListener("mouseleave", shrink);
+    });
+    const tick = () => {
+      if (a.current) { a.current.style.left = mx + "px"; a.current.style.top = my + "px"; }
+      rx += (mx - rx) * .11; ry += (my - ry) * .11;
+      if (b.current) { b.current.style.left = rx + "px"; b.current.style.top = ry + "px"; }
+      af = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => { cancelAnimationFrame(af); window.removeEventListener("mousemove", mv); };
+  }, []);
+  return (<><div id="cur-a" ref={a} /><div id="cur-b" ref={b} /></>);
+}
+
+/* ─── Scroll Progress ────────────────────────────────────────────────────────── */
+function ScrollBar() {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const fn = () => {
+      const s = document.documentElement.scrollTop;
+      const h = document.documentElement.scrollHeight - window.innerHeight;
+      setW(h > 0 ? (s / h) * 100 : 0);
+    };
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+  return <div id="spb" style={{ width: w + "%" }} />;
+}
+
+/* ─── Navbar ─────────────────────────────────────────────────────────────────── */
+function Nav({ scrollY }) {
+  const s = scrollY > 60;
+  return (
+    <nav className={s ? "scrolled" : ""}>
+      <div className="wordmark">Velora Skin</div>
+      <div className="nav-items">
+        {[["Story","#story"],["Science","#science"],["Ritual","#ritual"],["Vision","#statement"]].map(([l,h]) => (
+          <a key={l} href={h} className="nav-lnk">{l}</a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+/* ─── Hero ───────────────────────────────────────────────────────────────────── */
+function Hero() {
+  const imgRef = useRef(null);
+  useEffect(() => {
+    const fn = () => {
+      if (imgRef.current) imgRef.current.style.transform = `scale(1.04) translateY(${window.scrollY * .15}px)`;
+    };
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+  return (
+    <section id="hero">
+      <div id="hero-img" ref={imgRef} />
+      <div id="hero-veil" />
+      <div id="hero-content">
+        <p className="label hero-tag">Melanin-first skincare — est. 2019</p>
+        <h1 className="hero-h1">
+          Velora<br /><em>Skin</em>
+        </h1>
+        <p className="hero-sub">
+          Luxury skincare for skin that deserves<br />precision, not products.
+        </p>
+      </div>
+      <div className="hero-scroll">
+        <span>Scroll to begin</span>
+        <div className="scroll-line" />
+      </div>
+    </section>
+  );
+}
+
+/* ─── Brand Story ────────────────────────────────────────────────────────────── */
+function Story() {
+  return (
+    <section id="story">
+      <div className="story-grid">
+        {/* Left: image + label column */}
+        <div>
+          <p className="label story-label sr">The Origin</p>
+          <div className="story-img-wrap sr-l" style={{ transitionDelay: ".1s" }}>
+            <img
+              className="story-img"
+              src="https://images.unsplash.com/photo-1607748862156-7c548e7e98f4?w=700&q=85"
+              alt="VELORA brand story"
+            />
+            <div className="story-fig-caption">
+              <span className="story-fig-num">6</span>
+              <span className="label" style={{ marginTop: 4 }}>Years</span>
+              <span className="label" style={{ marginTop: 0 }}>in Research</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: text */}
+        <div>
+          <h2 className="story-h2 sr" style={{ transitionDelay: ".05s" }}>
+            Science<br />without<br /><em>compromise.</em>
+          </h2>
+
+          <div style={{ marginTop: 60 }}>
+            <p className="story-para sr" style={{ transitionDelay: ".1s" }}>
+              VELORA SKIN was built from a single, radical premise: that melanin-rich skin is not a variation to accommodate — it is the standard to design for. Every formula in our collection begins with this truth.
+            </p>
+            <blockquote className="story-quote sr" style={{ transitionDelay: ".15s" }}>
+              "We do not adjust our formulations for dark skin. We formulate for dark skin — and adjust everything else."
+            </blockquote>
+            <p className="story-para sr" style={{ transitionDelay: ".2s" }}>
+              Our laboratory is led by dermatologists and cosmetic chemists who have spent careers studying the specific biology of melanin-rich skin — its unique hydration dynamics, its post-inflammatory response, its relationship to UV radiation.
+            </p>
+            <div className="story-cols">
+              <div className="sr" style={{ transitionDelay: ".22s" }}>
+                <p className="story-col-h">Clean Chemistry</p>
+                <p className="story-para" style={{ marginBottom: 0 }}>
+                  Zero parabens, mineral oils, artificial fragrance, or optical brighteners. Every ingredient is in the formula because science demands it.
+                </p>
+              </div>
+              <div className="sr" style={{ transitionDelay: ".28s" }}>
+                <p className="story-col-h">Clinical Precision</p>
+                <p className="story-para" style={{ marginBottom: 0 }}>
+                  All efficacy claims are substantiated by randomised, double-blind clinical trials conducted exclusively on melanin-rich skin, Fitzpatrick IV–VI.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Skin Science ───────────────────────────────────────────────────────────── */
+function Science() {
+  const barRefs = useRef([]);
+  const [animated, setAnimated] = useState(false);
+
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && !animated) setAnimated(true);
+    }, { threshold: .3 });
+    const el = document.getElementById("science");
+    if (el) io.observe(el);
+    return () => io.disconnect();
+  }, [animated]);
+
+  useEffect(() => {
+    if (!animated) return;
+    barRefs.current.forEach((el, i) => {
+      if (el) {
+        setTimeout(() => { el.style.width = SCIENCE_CELLS[i].bar.pct + "%"; }, i * 180);
+      }
+    });
+  }, [animated]);
+
+  return (
+    <section id="science">
+      <div className="science-inner">
+        <div className="science-top">
+          <div>
+            <p className="label sr" style={{ color: "rgba(184,149,90,.5)", marginBottom: 24 }}>The Biology</p>
+            <h2 className="science-h2 sr" style={{ transitionDelay: ".05s" }}>
+              Skin science<br /><em>reimagined.</em>
+            </h2>
+          </div>
+          <p className="science-intro sr" style={{ transitionDelay: ".1s" }}>
+            Three pillars underpin every VELORA formulation. Understanding them is understanding why the results are different — not incrementally, but categorically.
+          </p>
+        </div>
+
+        <div className="science-grid sr" style={{ transitionDelay: ".12s" }}>
+          {SCIENCE_CELLS.map((c, i) => (
+            <div className="sci-cell" key={c.n}>
+              <div className="sci-num">{c.n}</div>
+              <h3 className="sci-h">{c.title}</h3>
+              <p className="sci-p">{c.body}</p>
+              <div className="sci-bar-wrap">
+                <div className="sci-bar-label">
+                  <span>{c.bar.label}</span>
+                  <span>{animated ? c.bar.pct : 0}%</span>
+                </div>
+                <div className="sci-bar-track">
+                  <div
+                    className="sci-bar-fill"
+                    ref={(el) => { barRefs.current[i] = el; }}
+                    style={{ transitionDelay: `${i * .18}s` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Ritual ─────────────────────────────────────────────────────────────────── */
+function Ritual() {
+  return (
+    <section id="ritual">
+      <div className="ritual-inner">
+        <div className="sr">
+          <p className="label" style={{ marginBottom: 20 }}>The System</p>
+          <h2 className="ritual-h2">
+            A ritual in<br /><em>four movements.</em>
+          </h2>
+        </div>
+        {RITUAL_STEPS.map((s, i) => (
+          <div className="ritual-step sr" key={s.n} style={{ transitionDelay: `${i * .07}s` }}>
+            <p className="ritual-n">{s.n}</p>
+            <div>
+              <h3 className="ritual-title">{s.title}</h3>
+              <p className="ritual-body">{s.body}</p>
+              <p className="ritual-note">{s.note}</p>
+            </div>
+            <img className="ritual-img" src={s.img} alt={s.title} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─── Visual Showcase ────────────────────────────────────────────────────────── */
+function Showcase() {
+  const imgs = [
+    { ref: useRef(null), src: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=1400&q=90", cap: "The skin you were born into deserves the science it was never given." },
+  ];
+
+  useEffect(() => {
+    const fns = imgs.map(({ ref }) => {
+      const fn = () => {
+        if (!ref.current) return;
+        const rect = ref.current.closest(".showcase-full").getBoundingClientRect();
+        const offset = rect.top * .18;
+        ref.current.style.transform = `translateY(${offset}px)`;
+      };
+      window.addEventListener("scroll", fn);
+      return fn;
+    });
+    return () => fns.forEach((fn) => window.removeEventListener("scroll", fn));
+  }, []);
+
+  return (
+    <section id="showcase">
+      <div className="showcase-full">
+        <img
+          ref={imgs[0].ref}
+          className="showcase-img"
+          src={imgs[0].src}
+          alt="VELORA visual"
+        />
+        <div style={{ position:"absolute", inset:0, background:"rgba(26,22,18,.38)" }} />
+        <div className="showcase-caption sr-s">
+          <p className="showcase-cap-h">"{imgs[0].cap}"</p>
+          <p className="showcase-cap-sub">Velora Skin — 2024</p>
+        </div>
+      </div>
+
+      <div className="two-col-shots">
+        {[
+          { src:"https://images.unsplash.com/photo-1617897903246-719242758050?w=800&q=85", label:"Formulated for clarity" },
+          { src:"https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=85", label:"Engineered for glow" },
+        ].map(({ src, label }) => (
+          <div className="shot-cell" key={label}>
+            <img className="shot-img" src={src} alt={label} />
+            <div className="shot-overlay">
+              <p className="shot-label">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─── Testimonials ───────────────────────────────────────────────────────────── */
+function Testimonials() {
+  return (
+    <section id="testimonials">
+      <div className="testi-inner">
+        <div className="testi-label sr">
+          <p className="label" style={{ color: "rgba(184,149,90,.5)" }}>In Their Words</p>
+        </div>
+        {TESTIMONIALS.map((t, i) => (
+          <div className="testi-item sr" key={i} style={{ transitionDelay: `${i * .1}s` }}>
+            <blockquote className="testi-q">"{t.quote}"</blockquote>
+            <div className="testi-by">
+              <div className="testi-line" />
+              <div>
+                <p className="testi-name">{t.name}</p>
+                <p className="testi-loc">{t.loc}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─── Brand Statement ────────────────────────────────────────────────────────── */
+function Statement() {
+  return (
+    <section id="statement">
+      <div className="statement-orb" />
+      <h2 className="statement-h sr">
+        VELORA is not skincare.<br />
+        It is <em>precision</em><br />
+        for the skin you live in.
+      </h2>
+      <div className="statement-rule sr" style={{ transitionDelay: ".15s" }} />
+    </section>
+  );
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────────── */
+function Footer() {
+  return (
+    <footer>
+      <div className="footer-inner">
+        <p className="footer-mark">Velora Skin</p>
+        <div className="footer-links">
+          {["Instagram","Journal","Sustainability","Privacy"].map((l) => (
+            <a key={l} href="#" className="footer-lnk">{l}</a>
+          ))}
+        </div>
+      </div>
+      <p className="footer-legal">
+        © 2024 Velora Skin. All rights reserved. Formulated with intention for the skin that deserves it most.
+      </p>
+    </footer>
+  );
+}
+
+/* ─── Scroll Reveal Hook ─────────────────────────────────────────────────────── */
+function useReveal() {
+  useEffect(() => {
+    const els = document.querySelectorAll(".sr,.sr-l,.sr-r,.sr-s");
     const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("visible")),
-      { threshold: 0.12 }
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("up"); }),
+      { threshold: .1 }
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   });
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function Cursor() {
-  const dot  = useRef(null);
-  const ring = useRef(null);
-  useEffect(() => {
-    let mx = 0, my = 0, rx = 0, ry = 0;
-    const onMove = (e) => { mx = e.clientX; my = e.clientY; };
-    const onEnter = () => ring.current?.classList.add("hovering");
-    const onLeave = () => ring.current?.classList.remove("hovering");
-    window.addEventListener("mousemove", onMove);
-    document.querySelectorAll("a,button,.mag-btn,.tilt-card").forEach((el) => {
-      el.addEventListener("mouseenter", onEnter);
-      el.addEventListener("mouseleave", onLeave);
-    });
-    let raf;
-    const animate = () => {
-      if (dot.current)  { dot.current.style.left  = mx + "px"; dot.current.style.top  = my + "px"; }
-      rx += (mx - rx) * .12; ry += (my - ry) * .12;
-      if (ring.current) { ring.current.style.left = rx + "px"; ring.current.style.top  = ry + "px"; }
-      raf = requestAnimationFrame(animate);
-    };
-    animate();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("mousemove", onMove); };
-  }, []);
-  return (<>
-    <div className="cursor-dot"  ref={dot}  />
-    <div className="cursor-ring" ref={ring} />
-  </>);
-}
-
-function ScrollProgress() {
-  const [pct, setPct] = useState(0);
-  useEffect(() => {
-    const onScroll = () => {
-      const s = document.documentElement.scrollTop;
-      const h = document.documentElement.scrollHeight - window.innerHeight;
-      setPct(h > 0 ? (s / h) * 100 : 0);
-    };
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  return <div className="scroll-bar" style={{ width: pct + "%" }} />;
-}
-
-function Particles() {
-  const particles = Array.from({ length: 18 }, (_, i) => ({
-    id: i,
-    size: Math.random() * 5 + 2,
-    left: Math.random() * 100,
-    delay: Math.random() * 8,
-    duration: Math.random() * 8 + 8,
-    opacity: Math.random() * 0.5 + 0.1,
-  }));
-  return (
-    <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none" }}>
-      {particles.map((p) => (
-        <div key={p.id} className="particle" style={{
-          width: p.size, height: p.size,
-          left: p.left + "%", bottom: "-10px",
-          opacity: p.opacity,
-          animationDuration: p.duration + "s",
-          animationDelay: p.delay + "s",
-        }} />
-      ))}
-    </div>
-  );
-}
-
-function Navbar({ scrollY }) {
-  const scrolled = scrollY > 60;
-  return (
-    <nav style={{
-      position:"fixed", top:0, left:0, right:0, zIndex:999,
-      padding: scrolled ? "14px 48px" : "28px 48px",
-      background: scrolled ? "rgba(247,242,238,0.88)" : "transparent",
-      backdropFilter: scrolled ? "blur(24px)" : "none",
-      borderBottom: scrolled ? "1px solid rgba(182,141,116,0.18)" : "none",
-      display:"flex", alignItems:"center", justifyContent:"space-between",
-      transition:"all .5s cubic-bezier(.23,1,.32,1)",
-    }}>
-      <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.35rem", fontWeight:700, letterSpacing:".08em", color:"var(--dark)" }}>
-        VELORA <span className="gradient-text">SKIN</span>
-      </div>
-      <div className="hide-mobile" style={{ display:"flex", gap:"36px" }}>
-        {["Collections","Ritual","Science","About","Stories"].map((l) => (
-          <a key={l} href={`#${l.toLowerCase()}`} className="nav-link">{l}</a>
-        ))}
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
-        <button className="mag-btn" style={{
-          padding:"11px 28px", borderRadius:"100px",
-          background:"var(--dark)", color:"#F7F2EE",
-          border:"none", cursor:"none", fontSize:".78rem", letterSpacing:".1em",
-          fontFamily:"Inter,sans-serif", fontWeight:500, textTransform:"uppercase",
-        }}>Shop Now</button>
-      </div>
-    </nav>
-  );
-}
-
-function Hero() {
-  const [offset, setOffset] = useState(0);
-  useEffect(() => {
-    const onScroll = () => setOffset(window.scrollY);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  return (
-    <section id="hero" style={{
-      minHeight:"100vh", position:"relative", display:"flex", alignItems:"center",
-      overflow:"hidden", background: "linear-gradient(160deg, #F7F2EE 0%, #EDE2D8 50%, #E0CFC2 100%)",
-    }}>
-      {/* Orbs */}
-      <div className="orb" style={{ width:600, height:600, background:"rgba(182,141,116,0.18)", top:-100, right:-80, transform:`translateY(${offset*.15}px)` }} />
-      <div className="orb" style={{ width:400, height:400, background:"rgba(201,168,130,0.22)", bottom:-100, left:-60, transform:`translateY(${-offset*.08}px)` }} />
-      <div className="orb" style={{ width:250, height:250, background:"rgba(212,185,154,0.28)", top:"40%", left:"38%", transform:`translateY(${offset*.1}px)` }} />
-
-      <Particles />
-
-      {/* Left content */}
-      <div style={{ position:"relative", zIndex:2, maxWidth:720, padding:"0 48px", marginTop:80 }}>
-        <div style={{
-          display:"inline-flex", alignItems:"center", gap:10, padding:"7px 18px",
-          borderRadius:"100px", background:"rgba(182,141,116,0.15)", border:"1px solid rgba(182,141,116,0.35)",
-          marginBottom:32,
-          animation: "reveal-up .8s cubic-bezier(.23,1,.32,1) both",
-        }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--accent)", display:"inline-block", animation:"pulse-glow 2s infinite" }} />
-          <span style={{ fontSize:".72rem", letterSpacing:".15em", textTransform:"uppercase", color:"var(--accent)", fontWeight:500 }}>Melanin-first skincare</span>
-        </div>
-
-        <h1 style={{
-          fontFamily:"'Playfair Display',serif",
-          fontSize:"clamp(3.2rem,6.5vw,6rem)",
-          lineHeight:1.06, fontWeight:800, color:"var(--dark)",
-          marginBottom:28,
-          animation:"reveal-up .9s .1s cubic-bezier(.23,1,.32,1) both",
-        }}>
-          Your Skin<br/>Deserves<br/><span className="gradient-text">Better Than</span><br/><em>Basic.</em>
-        </h1>
-
-        <p style={{
-          fontFamily:"'Cormorant Garamond',serif", fontSize:"1.25rem", fontWeight:300,
-          color:"var(--muted)", lineHeight:1.7, maxWidth:480, marginBottom:40,
-          animation:"reveal-up .9s .2s cubic-bezier(.23,1,.32,1) both",
-        }}>
-          Science-backed skincare for deep hydration, glow restoration, and unshakeable confidence.
-        </p>
-
-        <div style={{ display:"flex", gap:16, flexWrap:"wrap", animation:"reveal-up .9s .3s cubic-bezier(.23,1,.32,1) both" }}>
-          <button className="mag-btn" style={{
-            padding:"16px 40px", borderRadius:"100px",
-            background:"var(--dark)", color:"#F7F2EE",
-            border:"none", cursor:"none", fontSize:".82rem", letterSpacing:".12em",
-            fontFamily:"Inter,sans-serif", fontWeight:500, textTransform:"uppercase",
-          }}>Shop Collection</button>
-          <button className="mag-btn" style={{
-            padding:"16px 40px", borderRadius:"100px",
-            background:"transparent", color:"var(--dark)",
-            border:"1.5px solid var(--accent)", cursor:"none", fontSize:".82rem",
-            letterSpacing:".12em", fontFamily:"Inter,sans-serif", fontWeight:500, textTransform:"uppercase",
-          }}>Discover Routine</button>
-        </div>
-
-        {/* Stats row */}
-        <div style={{ display:"flex", gap:40, marginTop:64, animation:"reveal-up .9s .4s cubic-bezier(.23,1,.32,1) both" }}>
-          {[["50K+","Radiant customers"],["98%","Efficacy rating"],["Clean","23 actives, 0 toxins"]].map(([n,l]) => (
-            <div key={n}>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.6rem", fontWeight:700, color:"var(--dark)" }}>{n}</div>
-              <div style={{ fontSize:".73rem", color:"var(--muted)", letterSpacing:".08em", textTransform:"uppercase", marginTop:2 }}>{l}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Floating product cards */}
-      <div className="hide-mobile" style={{ position:"absolute", right:60, top:"50%", transform:"translateY(-50%)", display:"flex", flexDirection:"column", gap:20, zIndex:3 }}>
-        {[
-          { name:"Glow Repair Serum", price:"$92", img:"https://images.unsplash.com/photo-1570194065650-d99fb4abbd90?w=160&q=80", delay:"0s" },
-          { name:"Hydra Silk", price:"$76", img:"https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=160&q=80", delay:"1.5s" },
-        ].map((p) => (
-          <div key={p.name} className="tilt-card card-glow glass" style={{
-            borderRadius:20, padding:16, display:"flex", alignItems:"center", gap:14,
-            minWidth:230,
-            animation:`floatY 6s ${p.delay} ease-in-out infinite`,
-            boxShadow:"0 24px 60px rgba(30,27,24,0.1)",
-          }}>
-            <img src={p.img} alt={p.name} style={{ width:56, height:56, borderRadius:12, objectFit:"cover" }} />
-            <div>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:".9rem", fontWeight:600, color:"var(--dark)" }}>{p.name}</div>
-              <div style={{ fontSize:".75rem", color:"var(--muted)", marginTop:2 }}>Best Seller</div>
-              <div style={{ fontSize:".85rem", fontWeight:600, color:"var(--accent)", marginTop:4 }}>{p.price}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Hero model image */}
-      <div style={{
-        position:"absolute", right:280, top:0, bottom:0, width:380,
-        overflow:"hidden", transform:`translateY(${offset*.06}px)`,
-      }} className="hide-mobile">
-        <img
-          src="https://images.unsplash.com/photo-1607748862156-7c548e7e98f4?w=600&q=85"
-          alt="Luxury skincare model"
-          style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top", opacity:.88 }}
-        />
-        <div style={{
-          position:"absolute", inset:0,
-          background:"linear-gradient(to right, #F7F2EE 0%, transparent 25%, transparent 75%, #F7F2EE 100%)",
-        }} />
-      </div>
-
-      {/* Scroll indicator */}
-      <div style={{
-        position:"absolute", bottom:36, left:"50%", transform:"translateX(-50%)",
-        display:"flex", flexDirection:"column", alignItems:"center", gap:8, zIndex:4,
-        animation:"fade-in 1s 1s both",
-      }}>
-        <span style={{ fontSize:".65rem", letterSpacing:".18em", textTransform:"uppercase", color:"var(--muted)" }}>Scroll</span>
-        <div style={{ width:1, height:40, background:"linear-gradient(to bottom, var(--accent), transparent)" }} />
-      </div>
-    </section>
-  );
-}
-
-function Products() {
-  return (
-    <section id="collections" style={{ padding:"120px 48px", background:"var(--bg)" }}>
-      <div style={{ maxWidth:1200, margin:"0 auto" }}>
-        <div className="reveal" style={{ marginBottom:80, display:"flex", alignItems:"flex-end", justifyContent:"space-between", flexWrap:"wrap", gap:24 }}>
-          <div>
-            <p style={{ fontSize:".72rem", letterSpacing:".2em", textTransform:"uppercase", color:"var(--accent)", marginBottom:16 }}>The Collection</p>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(2.2rem,4vw,3.8rem)", fontWeight:700, color:"var(--dark)", lineHeight:1.1 }}>
-              Formulated for<br/><em>Melanin Magic.</em>
-            </h2>
-          </div>
-          <p style={{ maxWidth:360, color:"var(--muted)", lineHeight:1.7, fontSize:".95rem" }}>
-            Every formula developed with melanin-rich skin as the primary focus — not an afterthought.
-          </p>
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:28 }}>
-          {PRODUCTS.map((p, i) => (
-            <div key={p.name} className="tilt-card card-glow reveal" style={{
-              borderRadius:24, overflow:"hidden",
-              background: p.color,
-              boxShadow:"0 8px 40px rgba(30,27,24,0.08)",
-              transitionDelay: `${i * .07}s`,
-            }}>
-              <div style={{ position:"relative", overflow:"hidden", height:240 }}>
-                <img src={p.img} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover", transition:"transform .6s cubic-bezier(.23,1,.32,1)" }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.08)"}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-                />
-                <div style={{
-                  position:"absolute", top:16, right:16, padding:"6px 14px", borderRadius:"100px",
-                  background:"rgba(247,242,238,0.8)", backdropFilter:"blur(8px)",
-                  fontSize:".65rem", letterSpacing:".12em", textTransform:"uppercase", color:"var(--accent)", fontWeight:600,
-                }}>
-                  {p.tag}
-                </div>
-              </div>
-              <div style={{ padding:"24px 22px" }}>
-                <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:600, color:"var(--dark)", marginBottom:8 }}>{p.name}</h3>
-                <p style={{ fontSize:".8rem", color:"var(--muted)", lineHeight:1.6, marginBottom:16 }}>{p.desc}</p>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:18 }}>
-                  {p.ingredients.map((ing) => (
-                    <span key={ing} style={{
-                      padding:"4px 10px", borderRadius:"100px",
-                      background:"rgba(182,141,116,0.12)", border:"1px solid rgba(182,141,116,0.25)",
-                      fontSize:".65rem", color:"var(--accent)", letterSpacing:".06em",
-                    }}>{ing}</span>
-                  ))}
-                </div>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                  <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--dark)" }}>{p.price}</span>
-                  <button className="mag-btn" style={{
-                    padding:"9px 22px", borderRadius:"100px",
-                    background:"var(--dark)", color:"#F7F2EE",
-                    border:"none", cursor:"none", fontSize:".72rem", letterSpacing:".1em",
-                    fontFamily:"Inter,sans-serif", fontWeight:500, textTransform:"uppercase",
-                  }}>Add to Bag</button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SkinAnalysis() {
-  const [animated, setAnimated] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) setAnimated(true); }, { threshold:.3 });
-    if (ref.current) io.observe(ref.current);
-    return () => io.disconnect();
-  }, []);
-
-  return (
-    <section id="science" ref={ref} style={{
-      padding:"120px 48px",
-      background:"linear-gradient(160deg, var(--dark) 0%, #2E2620 100%)",
-      position:"relative", overflow:"hidden",
-    }}>
-      {/* bg orbs */}
-      <div className="orb" style={{ width:500, height:500, background:"rgba(182,141,116,0.08)", top:-80, right:-80 }} />
-      <div className="orb" style={{ width:300, height:300, background:"rgba(182,141,116,0.12)", bottom:-40, left:100 }} />
-      <Particles />
-
-      <div style={{ maxWidth:1200, margin:"0 auto", position:"relative", zIndex:2 }}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:80, alignItems:"center" }}>
-          {/* Left */}
-          <div>
-            <p className="reveal" style={{ fontSize:".72rem", letterSpacing:".2em", textTransform:"uppercase", color:"var(--accent)", marginBottom:16 }}>AI Skin Analysis</p>
-            <h2 className="reveal" style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(2.2rem,4vw,3.5rem)", fontWeight:700, color:"#F7F2EE", lineHeight:1.12, marginBottom:24 }}>
-              Understand<br/><em className="gradient-text">Your Skin.</em>
-            </h2>
-            <p className="reveal" style={{ color:"#9A8A80", lineHeight:1.7, marginBottom:48, maxWidth:400 }}>
-              Our AI-powered diagnostic maps your skin's unique biology — hydration depth, melanin distribution, barrier health — to build a ritual that's truly yours.
-            </p>
-
-            {/* Metrics */}
-            <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-              {SKIN_METRICS.map((m, i) => (
-                <div key={m.label} className="reveal" style={{ transitionDelay: `${i * .09}s` }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-                    <span style={{ fontSize:".8rem", color:"#C4B4AC", letterSpacing:".06em" }}>{m.label}</span>
-                    <span style={{ fontSize:".8rem", color:"var(--accent)", fontWeight:600 }}>{animated ? m.pct : 0}{m.unit}</span>
-                  </div>
-                  <div className="stat-bar">
-                    <div className="stat-fill" style={{ width: animated ? m.pct + "%" : "0%", transitionDelay: `${i * .15}s` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right — face scan UI */}
-          <div style={{ position:"relative", display:"flex", justifyContent:"center", alignItems:"center", minHeight:440 }}>
-            {/* Outer ring */}
-            <div className="spin-slow" style={{
-              width:320, height:320, borderRadius:"50%",
-              border:"1px dashed rgba(182,141,116,0.3)",
-              position:"absolute",
-            }} />
-            {/* Orbit dots */}
-            {[0,1,2].map((i) => (
-              <div key={i} style={{
-                position:"absolute", width:320, height:320,
-                animation:`orbit ${4 + i}s ${i * 1.2}s linear infinite`,
-              }}>
-                <div style={{
-                  width:10, height:10, borderRadius:"50%", background:"var(--accent)",
-                  boxShadow:"0 0 12px var(--glow)",
-                }} />
-              </div>
-            ))}
-
-            {/* Face circle */}
-            <div style={{
-              width:200, height:200, borderRadius:"50%",
-              background:"rgba(182,141,116,0.08)",
-              border:"1.5px solid rgba(182,141,116,0.4)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              position:"relative", zIndex:2,
-              boxShadow:"0 0 60px rgba(182,141,116,0.2)",
-            }}>
-              <img
-                src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&q=80"
-                alt="Skin analysis"
-                style={{ width:160, height:160, borderRadius:"50%", objectFit:"cover", objectPosition:"top" }}
-              />
-              {/* Scan lines */}
-              <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%" }} viewBox="0 0 200 200">
-                <line x1="0" y1="100" x2="200" y2="100" stroke="rgba(182,141,116,0.4)" strokeWidth=".5"
-                  style={{ animation: animated ? "line-draw 2s ease forwards" : "none", strokeDasharray:400, strokeDashoffset: animated ? 0 : 400 }} />
-                <line x1="100" y1="0" x2="100" y2="200" stroke="rgba(182,141,116,0.4)" strokeWidth=".5"
-                  style={{ animation: animated ? "line-draw 2s .5s ease forwards" : "none", strokeDasharray:400, strokeDashoffset: animated ? 0 : 400 }} />
-              </svg>
-            </div>
-
-            {/* Floating metric badges */}
-            {[
-              { label:"Hydration", val:"87%", x:-140, y:-60 },
-              { label:"Glow Score", val:"9.2", x:100, y:-80 },
-              { label:"Barrier",   val:"Optimal", x:-120, y:80 },
-            ].map((b) => (
-              <div key={b.label} className="glass-dark" style={{
-                position:"absolute", padding:"10px 16px", borderRadius:14,
-                transform:`translate(${b.x}px,${b.y}px)`,
-                animation:`floatY ${5 + Math.random()*2}s ease-in-out infinite`,
-              }}>
-                <div style={{ fontSize:".62rem", color:"#9A8A80", letterSpacing:".1em", textTransform:"uppercase" }}>{b.label}</div>
-                <div style={{ fontSize:"1rem", fontWeight:700, color:"var(--accent)", fontFamily:"'Playfair Display',serif" }}>{b.val}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="reveal" style={{ textAlign:"center", marginTop:80 }}>
-          <button className="mag-btn" style={{
-            padding:"18px 52px", borderRadius:"100px",
-            background:"linear-gradient(135deg,var(--accent),var(--gold))",
-            color:"#fff", border:"none", cursor:"none",
-            fontSize:".82rem", letterSpacing:".14em", fontFamily:"Inter,sans-serif",
-            fontWeight:500, textTransform:"uppercase", boxShadow:"0 12px 48px rgba(182,141,116,0.4)",
-          }}>Start Your Skin Analysis →</button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function About() {
-  return (
-    <section id="about" style={{ padding:"120px 48px", background:"var(--cream)", position:"relative", overflow:"hidden" }}>
-      <div style={{ maxWidth:1200, margin:"0 auto" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:80, alignItems:"center" }}>
-          {/* Images */}
-          <div className="reveal-left" style={{ position:"relative", height:560 }}>
-            <img src="https://images.unsplash.com/photo-1617897903246-719242758050?w=500&q=85" alt="About"
-              style={{ width:"72%", height:"80%", objectFit:"cover", borderRadius:24, position:"absolute", top:0, left:0, boxShadow:"0 32px 80px rgba(30,27,24,0.14)" }} />
-            <img src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=360&q=80" alt="Products"
-              style={{ width:"55%", height:"55%", objectFit:"cover", borderRadius:20, position:"absolute", bottom:0, right:0, boxShadow:"0 24px 60px rgba(30,27,24,0.12)" }} />
-            {/* Stat badge */}
-            <div className="glass pulse-glow" style={{
-              position:"absolute", top:"42%", left:"54%", padding:"18px 24px", borderRadius:18,
-              textAlign:"center", boxShadow:"0 16px 40px var(--glow)",
-            }}>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"2rem", fontWeight:800, color:"var(--dark)" }}>2019</div>
-              <div style={{ fontSize:".7rem", letterSpacing:".1em", textTransform:"uppercase", color:"var(--muted)" }}>Founded</div>
-            </div>
-          </div>
-
-          {/* Text */}
-          <div>
-            <p className="reveal" style={{ fontSize:".72rem", letterSpacing:".2em", textTransform:"uppercase", color:"var(--accent)", marginBottom:16 }}>Our Story</p>
-            <h2 className="reveal" style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(2rem,3.5vw,3.2rem)", fontWeight:700, color:"var(--dark)", lineHeight:1.12, marginBottom:28 }}>
-              Born from<br/>Science &<br/><em>Sacrifice.</em>
-            </h2>
-            <p className="reveal" style={{ color:"var(--muted)", lineHeight:1.9, marginBottom:24, fontSize:".95rem" }}>
-              VELORA SKIN was created to merge clinical skincare science with luxurious self-care experiences for melanin-rich skin — because we were tired of being an afterthought.
-            </p>
-            <p className="reveal" style={{ color:"var(--muted)", lineHeight:1.9, marginBottom:40, fontSize:".95rem" }}>
-              Our formulations are developed by dermatologists specializing in melanin-rich skin, with clinical trials conducted on diverse skin tones. Clean actives. Proven results. Unapologetic luxury.
-            </p>
-
-            {/* Counter stats */}
-            <div className="reveal" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:24 }}>
-              {[["23","Actives"],["0","Toxins"],["6yrs","Research"]].map(([n,l]) => (
-                <div key={l} style={{
-                  padding:"20px 16px", borderRadius:16, background:"rgba(182,141,116,0.08)",
-                  border:"1px solid rgba(182,141,116,0.2)", textAlign:"center",
-                }}>
-                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.8rem", fontWeight:800, color:"var(--dark)" }}>{n}</div>
-                  <div style={{ fontSize:".7rem", letterSpacing:".1em", textTransform:"uppercase", color:"var(--muted)", marginTop:4 }}>{l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Testimonials() {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setActive((a) => (a + 1) % TESTIMONIALS.length), 5000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <section id="stories" style={{ padding:"120px 48px", background:"var(--bg2)", position:"relative", overflow:"hidden" }}>
-      <div style={{ maxWidth:1200, margin:"0 auto" }}>
-        <div className="reveal" style={{ textAlign:"center", marginBottom:72 }}>
-          <p style={{ fontSize:".72rem", letterSpacing:".2em", textTransform:"uppercase", color:"var(--accent)", marginBottom:16 }}>Real Results</p>
-          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(2.2rem,4vw,3.5rem)", fontWeight:700, color:"var(--dark)" }}>
-            The Glow <em>Speaks.</em>
-          </h2>
-        </div>
-
-        <div style={{ overflow:"hidden", position:"relative" }}>
-          <div className="carousel-track" style={{ transform:`translateX(-${active * 100}%)` }}>
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} style={{ minWidth:"100%", padding:"0 12px" }}>
-                <div className="glass" style={{
-                  borderRadius:28, padding:"48px 56px",
-                  boxShadow:"0 24px 80px rgba(30,27,24,0.07)",
-                  display:"grid", gridTemplateColumns:"1fr auto", gap:48, alignItems:"start",
-                }}>
-                  <div>
-                    {/* Stars */}
-                    <div style={{ display:"flex", gap:4, marginBottom:28 }}>
-                      {Array(t.rating).fill(0).map((_, j) => (
-                        <span key={j} style={{ color:"var(--accent)", fontSize:"1.1rem" }}>★</span>
-                      ))}
-                    </div>
-                    <blockquote style={{
-                      fontFamily:"'Cormorant Garamond',serif",
-                      fontSize:"clamp(1.3rem,2.2vw,1.9rem)", fontWeight:400, lineHeight:1.5,
-                      color:"var(--dark)", fontStyle:"italic", marginBottom:32,
-                    }}>
-                      "{t.text}"
-                    </blockquote>
-                    <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-                      <img src={t.img} alt={t.name} style={{ width:48, height:48, borderRadius:"50%", objectFit:"cover" }} />
-                      <div>
-                        <div style={{ fontWeight:600, color:"var(--dark)", fontSize:".9rem" }}>{t.name}</div>
-                        <div style={{ fontSize:".75rem", color:"var(--muted)", marginTop:2 }}>{t.role}</div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Before/After */}
-                  <div className="hide-mobile" style={{
-                    padding:"24px 28px", borderRadius:20,
-                    background:"rgba(182,141,116,0.08)", border:"1px solid rgba(182,141,116,0.2)",
-                    textAlign:"center", minWidth:180,
-                  }}>
-                    <div style={{ fontSize:".65rem", letterSpacing:".12em", textTransform:"uppercase", color:"var(--muted)", marginBottom:12 }}>Transformation</div>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:".95rem", color:"var(--muted)", marginBottom:6 }}>{t.before}</div>
-                    <div style={{ fontSize:"1.2rem", color:"var(--accent)" }}>↓</div>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:600, color:"var(--dark)", marginTop:6 }}>{t.after}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Dots */}
-          <div style={{ display:"flex", justifyContent:"center", gap:10, marginTop:36 }}>
-            {TESTIMONIALS.map((_, i) => (
-              <button key={i} onClick={() => setActive(i)} style={{
-                width: i === active ? 28 : 8, height:8, borderRadius:4,
-                background: i === active ? "var(--accent)" : "rgba(182,141,116,0.3)",
-                border:"none", cursor:"none",
-                transition:"all .4s cubic-bezier(.23,1,.32,1)",
-              }} />
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Routine() {
-  return (
-    <section id="ritual" style={{ padding:"120px 48px", background:"var(--bg)" }}>
-      <div style={{ maxWidth:900, margin:"0 auto" }}>
-        <div className="reveal" style={{ textAlign:"center", marginBottom:80 }}>
-          <p style={{ fontSize:".72rem", letterSpacing:".2em", textTransform:"uppercase", color:"var(--accent)", marginBottom:16 }}>The System</p>
-          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(2.2rem,4vw,3.5rem)", fontWeight:700, color:"var(--dark)" }}>
-            Your 4-Step<br/><em>Ritual.</em>
-          </h2>
-        </div>
-
-        <div style={{ position:"relative" }}>
-          {/* Connecting line */}
-          <div style={{
-            position:"absolute", left:32, top:48, bottom:48, width:1,
-            background:"linear-gradient(to bottom, var(--accent), transparent)",
-          }} />
-
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            {ROUTINE.map((s, i) => (
-              <div key={s.step} className="routine-step reveal" style={{
-                display:"flex", gap:32, alignItems:"flex-start", padding:"28px 0",
-                borderBottom: i < ROUTINE.length - 1 ? "1px solid rgba(182,141,116,0.12)" : "none",
-                transitionDelay: `${i * .1}s`,
-              }}>
-                {/* Step number */}
-                <div style={{
-                  width:64, height:64, borderRadius:"50%", flexShrink:0,
-                  background:`rgba(182,141,116,0.1)`, border:`1.5px solid ${s.color}40`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontFamily:"'Playfair Display',serif", fontSize:".8rem", fontWeight:700, color:s.color,
-                  transition:"all .4s",
-                  zIndex:1, position:"relative",
-                }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = s.color; e.currentTarget.style.color = "#fff"; e.currentTarget.style.transform = "scale(1.1)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = `rgba(182,141,116,0.1)`; e.currentTarget.style.color = s.color; e.currentTarget.style.transform = "scale(1)"; }}
-                >
-                  {s.step}
-                </div>
-
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:8 }}>
-                    <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.4rem", fontWeight:700, color:"var(--dark)" }}>{s.title}</h3>
-                    <span style={{
-                      padding:"4px 12px", borderRadius:"100px",
-                      background:"rgba(182,141,116,0.1)", fontSize:".65rem", color:"var(--accent)",
-                      letterSpacing:".1em", textTransform:"uppercase",
-                    }}>{s.time}</span>
-                  </div>
-                  <p style={{ color:"var(--muted)", marginBottom:10, lineHeight:1.7, fontSize:".9rem" }}>{s.desc}</p>
-                  <div className="step-detail">
-                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 16px", borderRadius:12, background:"rgba(182,141,116,0.08)" }}>
-                      <span style={{ color:"var(--accent)", fontSize:".9rem" }}>✦</span>
-                      <span style={{ fontSize:".82rem", color:"var(--muted)", fontStyle:"italic" }}>{s.tip}</span>
-                    </div>
-                    <div style={{ marginTop:12, fontSize:".78rem", color:"var(--accent)", letterSpacing:".06em" }}>Use: <strong style={{ color:"var(--dark)" }}>{s.product}</strong></div>
-                  </div>
-                </div>
-
-                <div style={{
-                  fontSize:"1.4rem", color:"rgba(182,141,116,0.2)",
-                  fontFamily:"'Playfair Display',serif", fontWeight:700,
-                  flexShrink:0, alignSelf:"center",
-                }}>→</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Newsletter() {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  return (
-    <section style={{
-      padding:"120px 48px", position:"relative", overflow:"hidden",
-      background:"linear-gradient(150deg, #1E1B18 0%, #2D2017 50%, #1E1B18 100%)",
-    }}>
-      {/* Orbs */}
-      <div className="orb" style={{ width:500, height:500, background:"rgba(182,141,116,0.08)", top:-120, right:-100, animation:"floatY 10s ease-in-out infinite" }} />
-      <div className="orb" style={{ width:300, height:300, background:"rgba(182,141,116,0.12)", bottom:-60, left:80, animation:"floatY 8s 2s ease-in-out infinite" }} />
-      <Particles />
-
-      <div style={{ maxWidth:700, margin:"0 auto", position:"relative", zIndex:2, textAlign:"center" }}>
-        <div className="reveal">
-          <p style={{ fontSize:".72rem", letterSpacing:".2em", textTransform:"uppercase", color:"var(--accent)", marginBottom:20 }}>The Velora Edit</p>
-          <h2 style={{
-            fontFamily:"'Playfair Display',serif",
-            fontSize:"clamp(3rem,7vw,5.5rem)",
-            fontWeight:800, color:"#F7F2EE", lineHeight:1.05, marginBottom:20,
-          }}>
-            Glow Starts<br/><em className="gradient-text">Here.</em>
-          </h2>
-          <p style={{ color:"#9A8A80", fontSize:"1rem", lineHeight:1.7, marginBottom:48, maxWidth:460, margin:"0 auto 48px" }}>
-            Join 50,000+ women who receive exclusive formulation insights, early access, and rituals for radiant skin.
-          </p>
-        </div>
-
-        <div className="reveal" style={{ display:"flex", gap:0, maxWidth:480, margin:"0 auto" }}>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            style={{
-              flex:1, padding:"18px 24px", borderRadius:"100px 0 0 100px",
-              border:"1px solid rgba(182,141,116,0.3)", borderRight:"none",
-              background:"rgba(247,242,238,0.05)", color:"#F7F2EE",
-              fontSize:".88rem", outline:"none",
-              fontFamily:"Inter,sans-serif",
-            }}
-          />
-          <button
-            className="mag-btn"
-            onClick={() => { setSent(true); setEmail(""); }}
-            style={{
-              padding:"18px 28px", borderRadius:"0 100px 100px 0",
-              background:"linear-gradient(135deg,var(--accent),var(--gold))",
-              color:"#fff", border:"none", cursor:"none",
-              fontSize:".78rem", letterSpacing:".12em", fontFamily:"Inter,sans-serif",
-              fontWeight:600, textTransform:"uppercase",
-            }}
-          >
-            {sent ? "✓ Joined" : "Subscribe →"}
-          </button>
-        </div>
-        {sent && <p style={{ color:"var(--accent)", fontSize:".8rem", marginTop:16, animation:"fade-in .5s" }}>Welcome to the ritual. ✦</p>}
-      </div>
-    </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer style={{ padding:"64px 48px 40px", background:"var(--dark)", position:"relative", overflow:"hidden" }}>
-      {/* Glow line */}
-      <div style={{ height:1, background:"linear-gradient(90deg,transparent,var(--accent),transparent)", marginBottom:56 }} />
-
-      <div style={{ maxWidth:1200, margin:"0 auto" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap:48, marginBottom:56 }}>
-          <div>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.5rem", fontWeight:700, color:"#F7F2EE", marginBottom:16 }}>
-              VELORA <span className="gradient-text">SKIN</span>
-            </div>
-            <p style={{ color:"#6B5D55", lineHeight:1.8, fontSize:".88rem", maxWidth:280 }}>
-              Luxury skincare engineered for melanin-rich skin. Clean science. Unapologetic glow.
-            </p>
-            {/* Socials */}
-            <div style={{ display:"flex", gap:12, marginTop:28 }}>
-              {["IG","TK","PT","YT"].map((s) => (
-                <div key={s} style={{
-                  width:36, height:36, borderRadius:"50%",
-                  border:"1px solid rgba(182,141,116,0.3)",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  cursor:"none", transition:"all .3s",
-                  color:"#9A8A80", fontSize:".65rem", fontWeight:600, letterSpacing:".05em",
-                }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(182,141,116,0.3)"; e.currentTarget.style.color = "#9A8A80"; }}
-                >{s}</div>
-              ))}
-            </div>
-          </div>
-          {[
-            ["Collections", ["Serums","Moisturizers","Cleansers","SPF","Oils"]],
-            ["Company",     ["Our Story","Science Lab","Careers","Press","Stockists"]],
-            ["Support",     ["Track Order","Returns","Skin Quiz","FAQ","Contact"]],
-          ].map(([head, links]) => (
-            <div key={head}>
-              <div style={{ fontSize:".7rem", letterSpacing:".18em", textTransform:"uppercase", color:"var(--accent)", marginBottom:20 }}>{head}</div>
-              <ul style={{ listStyle:"none", display:"flex", flexDirection:"column", gap:12 }}>
-                {links.map((l) => (
-                  <li key={l}>
-                    <a href="#" style={{ color:"#6B5D55", fontSize:".85rem", textDecoration:"none", transition:"color .3s" }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = "#C4B4AC"}
-                      onMouseLeave={(e) => e.currentTarget.style.color = "#6B5D55"}
-                    >{l}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ borderTop:"1px solid rgba(182,141,116,0.1)", paddingTop:28, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
-          <p style={{ fontSize:".72rem", color:"#4A3D38", letterSpacing:".06em" }}>© 2024 VELORA SKIN. All rights reserved. Formulated with intention.</p>
-          <div style={{ display:"flex", gap:24 }}>
-            {["Privacy","Terms","Cookie Policy"].map((l) => (
-              <a key={l} href="#" style={{ fontSize:".72rem", color:"#4A3D38", textDecoration:"none", letterSpacing:".06em" }}>{l}</a>
-            ))}
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-// ─── Main App ─────────────────────────────────────────────────────────────────
-export default function VeloraSkin() {
+/* ─── App ────────────────────────────────────────────────────────────────────── */
+export default function VeloraBrand() {
   const [scrollY, setScrollY] = useState(0);
-
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    const fn = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
   }, []);
-
-  useScrollReveal();
+  useReveal();
 
   return (
     <>
-      <style>{globalStyles}</style>
+      <style>{CSS}</style>
       <Cursor />
-      <ScrollProgress />
-      <Navbar scrollY={scrollY} />
-      <main>
-        <Hero />
-        <Products />
-        <SkinAnalysis />
-        <About />
-        <Testimonials />
-        <Routine />
-        <Newsletter />
-      </main>
+      <ScrollBar />
+      <Nav scrollY={scrollY} />
+      <Hero />
+      <Story />
+      <Science />
+      <Ritual />
+      <Showcase />
+      <Testimonials />
+      <Statement />
       <Footer />
     </>
   );
 }
-
-
